@@ -1,0 +1,261 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/business.dart';
+import '../models/business_data.dart';
+import '../utils/experience_calculator.dart';
+
+class GameProvider with ChangeNotifier {
+  // === OYUN VERİLERİ ===
+  bool _darkMode = false;
+  double _balance = 0.0;
+  int _todayClicks = 0;
+  int _weekClicks = 0;
+  int _totalClicks = 0;
+  int _totalExperience = 0;
+  int _clickUpgradeLevel = 0;
+  int _notificationCount = 0;
+
+  // İşletmeler
+  List<Business> _businesses = [];
+
+  // Pasif gelir zamanlayıcısı
+  Timer? _passiveIncomeTimer;
+
+  // === GETTERS ===
+  bool get darkMode => _darkMode;
+  double get balance => _balance;
+  int get todayClicks => _todayClicks;
+  int get weekClicks => _weekClicks;
+  int get totalClicks => _totalClicks;
+  int get totalExperience => _totalExperience;
+  int get clickUpgradeLevel => _clickUpgradeLevel;
+  int get notificationCount => _notificationCount;
+  List<Business> get businesses => _businesses;
+
+  // Seviye bilgileri (hesaplanmış)
+  Map<String, int> get levelInfo =>
+      ExperienceCalculator.getLevelInfo(_totalExperience);
+
+  int get currentLevel => levelInfo['level']!;
+  int get currentXP => levelInfo['currentXP']!;
+  int get requiredXP => levelInfo['requiredXP']!;
+
+  // Toplam pasif gelir
+  double get passiveIncome {
+    return _businesses.fold(0.0, (sum, b) => sum + b.getCurrentIncome());
+  }
+
+  // === CONSTRUCTOR ===
+  GameProvider() {
+    _loadGame();
+    _startPassiveIncome();
+  }
+
+  // ============================================
+  // 💾 VERİ YÜKLEME
+  // ============================================
+  Future<void> _loadGame() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    _darkMode = prefs.getBool('darkMode') ?? false;
+    _balance = prefs.getDouble('balance') ?? 0.0;
+    _todayClicks = prefs.getInt('todayClicks') ?? 0;
+    _weekClicks = prefs.getInt('weekClicks') ?? 0;
+    _totalClicks = prefs.getInt('totalClicks') ?? 0;
+    _totalExperience = prefs.getInt('totalExperience') ?? 0;
+    _clickUpgradeLevel = prefs.getInt('clickUpgradeLevel') ?? 0;
+    _notificationCount = prefs.getInt('notificationCount') ?? 0;
+
+    // İşletmeleri yükle
+    _businesses = initialBusinesses.map((b) {
+      final level = prefs.getInt('business_${b.id}_level') ?? 0;
+      return Business(
+        id: b.id,
+        name: b.name,
+        icon: b.icon,
+        level: level,
+        baseCost: b.baseCost,
+        baseIncome: b.baseIncome,
+        costMultiplier: b.costMultiplier,
+        description: b.description,
+        requiredExperience: b.requiredExperience,
+      );
+    }).toList();
+
+    notifyListeners();
+  }
+
+  // ============================================
+  // 💾 VERİ KAYDETME
+  // ============================================
+  Future<void> _saveGame() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setBool('darkMode', _darkMode);
+    await prefs.setDouble('balance', _balance);
+    await prefs.setInt('todayClicks', _todayClicks);
+    await prefs.setInt('weekClicks', _weekClicks);
+    await prefs.setInt('totalClicks', _totalClicks);
+    await prefs.setInt('totalExperience', _totalExperience);
+    await prefs.setInt('clickUpgradeLevel', _clickUpgradeLevel);
+    await prefs.setInt('notificationCount', _notificationCount);
+
+    // İşletmeleri kaydet
+    for (var b in _businesses) {
+      await prefs.setInt('business_${b.id}_level', b.level);
+    }
+  }
+
+  // ============================================
+  // 🎮 OYUN METODLARI
+  // ============================================
+
+  // Dark mode değiştir
+  void toggleDarkMode() {
+    _darkMode = !_darkMode;
+    _saveGame();
+    notifyListeners();
+  }
+
+  // Para ekle
+  void addBalance(double amount) {
+    _balance += amount;
+    _saveGame();
+    notifyListeners();
+  }
+
+  // Para çıkar
+  void subtractBalance(double amount) {
+    if (_balance >= amount) {
+      _balance -= amount;
+      _saveGame();
+      notifyListeners();
+    }
+  }
+
+  // Tıklama (her tıklama +1 para, +1 XP)
+  void handleClick() {
+    final clickValue = 1.0 + _clickUpgradeLevel;
+    _balance += clickValue;
+    _todayClicks++;
+    _weekClicks++;
+    _totalClicks++;
+    _totalExperience++; // ← Her tıklama +1 XP
+    _saveGame();
+    notifyListeners();
+  }
+
+  // Tıklama değerini yükselt
+  void upgradeClickValue(double cost) {
+    if (_balance >= cost && _clickUpgradeLevel < 10) {
+      _balance -= cost;
+      _clickUpgradeLevel++;
+      _saveGame();
+      notifyListeners();
+    }
+  }
+
+  // Bildirim sayısını ayarla
+  void setNotificationCount(int count) {
+    _notificationCount = count;
+    _saveGame();
+    notifyListeners();
+  }
+
+  // ============================================
+  // 🏢 İŞLETME SATIN ALMA
+  // ============================================
+  bool purchaseBusiness(Business business) {
+    final cost = business.getCurrentCost();
+
+    // Para kontrolü
+    if (_balance < cost) {
+      return false;
+    }
+
+    // XP unlock kontrolü (ilk satın almada)
+    if (business.level == 0 && !business.isUnlocked(_totalExperience)) {
+      return false;
+    }
+
+    final isFirstPurchase = business.level == 0;
+
+    // Satın al
+    _balance -= cost;
+    business.level++;
+
+    // İlk satın almada %30 XP bonusu
+    if (isFirstPurchase) {
+      final bonus = ExperienceCalculator.getBusinessPurchaseXPBonus(
+          business.requiredExperience
+      );
+      _totalExperience += bonus;
+    }
+
+    _saveGame();
+    notifyListeners();
+    return true;
+  }
+
+  // ============================================
+  // 💰 PASİF GELİR OTOMATİZASYONU
+  // ============================================
+  void _startPassiveIncome() {
+    _passiveIncomeTimer?.cancel();
+    _passiveIncomeTimer = Timer.periodic(
+      const Duration(seconds: 1),
+          (timer) {
+        if (passiveIncome > 0) {
+          _balance += passiveIncome;
+          // Not: Her saniye kaydetmiyoruz, performans için
+          // Sadece notifyListeners çağırıyoruz
+          notifyListeners();
+        }
+      },
+    );
+  }
+
+  // ============================================
+  // 🔄 OYUNU SIFIRLA
+  // ============================================
+  Future<void> resetGame() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+
+    _darkMode = false;
+    _balance = 0.0;
+    _todayClicks = 0;
+    _weekClicks = 0;
+    _totalClicks = 0;
+    _totalExperience = 0;
+    _clickUpgradeLevel = 0;
+    _notificationCount = 0;
+
+    // İşletmeleri sıfırla
+    _businesses = initialBusinesses.map((b) => Business(
+      id: b.id,
+      name: b.name,
+      icon: b.icon,
+      level: 0,
+      baseCost: b.baseCost,
+      baseIncome: b.baseIncome,
+      costMultiplier: b.costMultiplier,
+      description: b.description,
+      requiredExperience: b.requiredExperience,
+    )).toList();
+
+    notifyListeners();
+  }
+
+  // ============================================
+  // 🗑️ DISPOSE
+  // ============================================
+  @override
+  void dispose() {
+    _passiveIncomeTimer?.cancel();
+    // Son kez kaydet
+    _saveGame();
+    super.dispose();
+  }
+}
