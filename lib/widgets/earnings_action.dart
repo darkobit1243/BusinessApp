@@ -70,7 +70,7 @@ class _EarningsActionState extends State<EarningsAction> {
 
         const SizedBox(height: 16),
 
-        // Click Button
+        // Click Button (Buton sabit, içeride animasyon)
         GestureDetector(
           onTapDown: (_) {
             setState(() => isPressed = true);
@@ -78,54 +78,69 @@ class _EarningsActionState extends State<EarningsAction> {
           },
           onTapUp: (_) => setState(() => isPressed = false),
           onTapCancel: () => setState(() => isPressed = false),
-          child: AnimatedScale(
-            scale: isPressed ? 0.95 : 1.0,
-            duration: const Duration(milliseconds: 200),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+              ),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFCA5A5).withOpacity(0.4),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
                 ),
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFFCA5A5).withOpacity(0.4),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  // Hand Icon
-                  Icon(
-                    Icons.touch_app,
+              ],
+            ),
+            child: Column(
+              children: [
+                // Hand Icon with internal animation
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Ripple effect when pressed
+                    if (isPressed)
+                      Container(
+                        width: 120,
+                        height: 120,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.3),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    // Icon
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      child: Icon(
+                        Icons.touch_app,
+                        color: Colors.white,
+                        size: isPressed ? 72 : 80,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  '+\$1 Kazanmak İçin Tıkla!',
+                  style: TextStyle(
                     color: Colors.white,
-                    size: isPressed ? 72 : 80,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    '+\$1 Kazanmak İçin Tıkla!',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Her tıklama \$1 kazandırır',
+                  style: TextStyle(
+                    color: const Color(0xFFFECDD3),
+                    fontSize: 14,
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Her tıklama \$1 kazandırır',
-                    style: TextStyle(
-                      color: const Color(0xFFFECDD3),
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),

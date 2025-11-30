@@ -3,7 +3,7 @@ import '../widgets/balance_card.dart';
 import '../widgets/earnings_action.dart';
 
 class EarningsTab extends StatelessWidget {
-  const EarningsTab({Key? key}) : super(key: key);
+  const EarningsTab({super.key});
 
   @override
   Widget build(BuildContext context) {
