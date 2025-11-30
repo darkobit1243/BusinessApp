@@ -9,7 +9,7 @@ import 'screens/profile_tab.dart';
 import 'widgets/bottom_navigation.dart';
 import 'widgets/google_connect_modal.dart';
 import 'widgets/notification_panel.dart';
-,,,,,,
+
 void main() {
   runApp(
     ChangeNotifierProvider(
