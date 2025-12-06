@@ -1,8 +1,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Internet izni: Google Play bağlantısı ve ağ istekleri için gerekli -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:label="business_project"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+
+        <!-- Google Play Games Services App ID (GPGS) -->
+        <!-- TODO: Buraya Play Console'dan aldığın gerçek GPGS APP ID'yi yaz -->
+        <meta-data
+            android:name="com.google.android.gms.games.APP_ID"
+            android:value="@string/games_app_id" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

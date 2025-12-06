@@ -20,7 +20,7 @@ class BalanceCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(18),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -41,12 +41,13 @@ class BalanceCard extends StatelessWidget {
       child: Stack(
         children: [
           // Animated Background Effects
+          // Dekoratif daireleri de küçült
           Positioned(
             top: 0,
             right: 0,
             child: Container(
-              width: 160,
-              height: 160,
+              width: 110,
+              height: 110,
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.1),
                 shape: BoxShape.circle,
@@ -57,8 +58,8 @@ class BalanceCard extends StatelessWidget {
             bottom: 0,
             left: 0,
             child: Container(
-              width: 128,
-              height: 128,
+              width: 90,
+              height: 90,
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.1),
                 shape: BoxShape.circle,
@@ -72,8 +73,8 @@ class BalanceCard extends StatelessWidget {
             bottom: 0,
             child: Center(
               child: Container(
-                width: 192,
-                height: 192,
+                width: 140,
+                height: 140,
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.05),
                   shape: BoxShape.circle,
@@ -84,7 +85,7 @@ class BalanceCard extends StatelessWidget {
 
           // Content
           Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -95,8 +96,8 @@ class BalanceCard extends StatelessWidget {
                     Row(
                       children: [
                         Container(
-                          width: 40,
-                          height: 40,
+                          width: 32,
+                          height: 32,
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.2),
                             shape: BoxShape.circle,
@@ -104,10 +105,10 @@ class BalanceCard extends StatelessWidget {
                           child: const Icon(
                             Icons.account_balance_wallet,
                             color: Colors.white,
-                            size: 20,
+                            size: 18,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -115,14 +116,14 @@ class BalanceCard extends StatelessWidget {
                               'Cüzdan Bakiyesi',
                               style: TextStyle(
                                 color: Colors.white.withOpacity(0.8),
-                                fontSize: 12,
+                                fontSize: 11,
                               ),
                             ),
                             const Text(
                               'Ana Hesap',
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 14,
+                                fontSize: 13,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -133,8 +134,8 @@ class BalanceCard extends StatelessWidget {
                     // Status Badge
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 4,
+                        horizontal: 10,
+                        vertical: 3,
                       ),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.2),
@@ -165,7 +166,7 @@ class BalanceCard extends StatelessWidget {
                   ],
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
 
                 // Balance Amount
                 Row(
@@ -175,18 +176,18 @@ class BalanceCard extends StatelessWidget {
                       '\$',
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.9),
-                        fontSize: 30,
+                        fontSize: 22,
                         fontWeight: FontWeight.w300,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 4),
                     Text(
                       gameProvider.balance.toStringAsFixed(0),
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 48,
+                        fontSize: 34,
                         fontWeight: FontWeight.bold,
-                        letterSpacing: -1,
+                        letterSpacing: -0.5,
                       ),
                     ),
                   ],
@@ -200,14 +201,17 @@ class BalanceCard extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
 
                 // Stats Grid
                 Row(
                   children: [
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(16),
@@ -232,10 +236,10 @@ class BalanceCard extends StatelessWidget {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              '+\$1',
-                              style: TextStyle(
+                            const SizedBox(height: 2),
+                            Text(
+                              '+\$${gameProvider.currentClickValue}',
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
@@ -247,8 +251,11 @@ class BalanceCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 16),
                     Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(16),
@@ -273,7 +280,7 @@ class BalanceCard extends StatelessWidget {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 2),
                             Text(
                               '\$${formatNumber(passiveIncome)}/s',
                               style: const TextStyle(
@@ -289,7 +296,7 @@ class BalanceCard extends StatelessWidget {
                   ],
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
 
                 // Card Info
                 Container(

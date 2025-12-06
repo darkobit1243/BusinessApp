@@ -16,6 +16,10 @@ class GameProvider with ChangeNotifier {
   int _clickUpgradeLevel = 0;
   int _notificationCount = 0;
 
+  // Google Play Games / profil bilgileri (isteğe bağlı)
+  String? _googlePlayProfileUrl;
+  String? _googlePlayName;
+
   // İşletmeler
   List<Business> _businesses = [];
 
@@ -33,6 +37,9 @@ class GameProvider with ChangeNotifier {
   int get notificationCount => _notificationCount;
   List<Business> get businesses => _businesses;
 
+  String? get googlePlayProfileUrl => _googlePlayProfileUrl;
+  String? get googlePlayName => _googlePlayName;
+
   // Seviye bilgileri (hesaplanmış)
   Map<String, int> get levelInfo =>
       ExperienceCalculator.getLevelInfo(_totalExperience);
@@ -40,6 +47,13 @@ class GameProvider with ChangeNotifier {
   int get currentLevel => levelInfo['level']!;
   int get currentXP => levelInfo['currentXP']!;
   int get requiredXP => levelInfo['requiredXP']!;
+
+  /// Google Play Games profil bilgisini güncellemek için yardımcı metot.
+  void setGooglePlayProfile({String? name, String? photoUrl}) {
+    _googlePlayName = name;
+    _googlePlayProfileUrl = photoUrl;
+    notifyListeners();
+  }
 
   // Toplam pasif gelir
   double get passiveIncome {

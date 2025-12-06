@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:games_services/games_services.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../providers/game_provider.dart';
 
 class GoogleConnectModal extends StatelessWidget {
@@ -54,24 +54,26 @@ class GoogleConnectModal extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
 
-                  // Google Play bağlantı butonu
+                  // Google Play Games Services ile bağlan butonu
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () async {
-                        // TODO: Kendi paket adını buraya yaz
-                        final uri = Uri.parse(
-                          'https://play.google.com/store/apps/details?id=com.example.business_project',
-                        );
-                        if (await canLaunchUrl(uri)) {
-                          await launchUrl(
-                            uri,
-                            mode: LaunchMode.externalApplication,
-                          );
-                        } else {
+                        try {
+                          await GamesServices.signIn();
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Google Play açılamadı.'),
+                              content: Text(
+                                'Google Play Games ile oturum açıldı.',
+                              ),
+                            ),
+                          );
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Google Play Games oturumu açılamadı: $e',
+                              ),
                             ),
                           );
                         }
@@ -84,9 +86,9 @@ class GoogleConnectModal extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      icon: const Icon(Icons.play_arrow_rounded),
+                      icon: const Icon(Icons.sports_esports_rounded),
                       label: const Text(
-                        'Google Play ile Bağlan',
+                        'Google Play Games ile Bağlan',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
