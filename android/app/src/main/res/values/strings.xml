@@ -1,0 +1,9 @@
+<resources>
+    <!-- Uygulama adı -->
+    <string name="app_name">business_project</string>
+
+    <!-- TODO: Play Console'daki Google Play Games Services APP ID'nizi buraya yazın -->
+    <string name="games_app_id">1234567890</string>
+</resources>
+
+
