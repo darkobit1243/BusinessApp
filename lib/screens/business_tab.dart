@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/business.dart';
 import '../providers/game_provider.dart';
 
 class BusinessTab extends StatelessWidget {
@@ -152,7 +153,7 @@ class BusinessTab extends StatelessWidget {
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
-                                    'Lv.${business.level}',
+                                    'Lv.${business.level}/${Business.maxLevel}',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: Colors.blue,

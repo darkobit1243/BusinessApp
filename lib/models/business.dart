@@ -1,12 +1,18 @@
 import 'dart:math';
 
 class Business {
+  /// Maksimum seviye: 15
+  static const int maxLevel = 15;
+
   final int id;
   final String name;
   final String icon;
   int level;
   final double baseCost;
   final double baseIncome;
+
+  /// Eski tasarımdan kalan alan, geriye dönük uyumluluk için tutuluyor
+  /// ancak maliyet hesabında artık sabit 3x çarpanı kullanıyoruz.
   final double costMultiplier;
   final String description;
   final int requiredExperience;
@@ -18,31 +24,49 @@ class Business {
     this.level = 0,
     required this.baseCost,
     required this.baseIncome,
-    this.costMultiplier = 1.15,
+    this.costMultiplier = 3.0,
     required this.description,
     required this.requiredExperience,
   });
 
-  // Mevcut seviye maliyeti
+  /// Mevcut seviye için UPGRADE maliyeti
+  ///
+  /// Tap Tapcoon mantığı:
+  /// - Level 0 → 1: cost = baseCost
+  /// - Level 1 → 2: cost = baseCost * 3
+  /// - Level 2 → 3: cost = baseCost * 3^2
+  ///   ...
+  /// Genel formül:
+  ///   cost(level) = baseCost * 3^level
   double getCurrentCost() {
-    if (level == 0) return baseCost;
-    return baseCost * pow(costMultiplier, level);
+    if (level >= maxLevel) return double.infinity;
+    return baseCost * pow(3, level).toDouble();
   }
 
-  // Mevcut seviye geliri (YENİ FORMÜL: baseIncome * 1.5^(level-1))
+  /// Mevcut seviye pasif gelir (/s)
+  ///
+  /// - Level 0: 0
+  /// - Level 1: baseIncome
+  /// - Level 2: baseIncome * 1.2
+  /// - Level 3: baseIncome * 1.2^2
+  /// Genel formül:
+  ///   revenue(level) = baseIncome * 1.2^(level-1), level >= 1
   double getCurrentIncome() {
     if (level == 0) return 0.0;
-    return baseIncome * pow(1.5, level - 1);
+    return baseIncome * pow(1.2, (level - 1)).toDouble();
   }
 
-  // Sonraki seviye maliyeti
+  /// Sonraki seviye için maliyet (sadece gösterim amaçlı)
   double getNextLevelCost() {
-    return baseCost * pow(costMultiplier, level);
+    if (level >= maxLevel) return double.infinity;
+    return baseCost * pow(3, level + 1).toDouble();
   }
 
-  // Sonraki seviye geliri
+  /// Sonraki seviye için gelir (sadece gösterim amaçlı)
   double getNextLevelIncome() {
-    return baseIncome * pow(1.5, level);
+    if (level >= maxLevel) return getCurrentIncome();
+    // Level 0 iken next income baseIncome olur (1.2^0 = 1)
+    return baseIncome * pow(1.2, level).toDouble();
   }
 
   // İşletme unlock edilmiş mi?

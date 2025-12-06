@@ -192,7 +192,13 @@ class GameProvider with ChangeNotifier {
   // 🏢 İŞLETME SATIN ALMA
   // ============================================
   bool purchaseBusiness(Business business) {
-    final cost = business.getNextLevelCost();
+    // Maks seviye kontrolü (Tap Tapcoon: 15)
+    if (business.level >= Business.maxLevel) {
+      return false;
+    }
+
+    // Mevcut seviyeden bir sonraki seviyeye geçiş maliyeti
+    final cost = business.getCurrentCost();
 
     // Para kontrolü
     if (_balance < cost) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'providers/game_provider.dart';
 import 'screens/earnings_tab.dart';
@@ -26,26 +27,37 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<GameProvider>(
       builder: (context, gameProvider, child) {
+        final baseLight = ThemeData(
+          useMaterial3: true,
+          brightness: Brightness.light,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFFEF4444), // BalanceCard ana rengi
+            brightness: Brightness.light,
+          ),
+          scaffoldBackgroundColor: const Color(0xFFFAF9F6),
+        );
+
+        final baseDark = ThemeData(
+          useMaterial3: true,
+          brightness: Brightness.dark,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFFEF4444),
+            brightness: Brightness.dark,
+          ),
+          scaffoldBackgroundColor: const Color(0xFF0A0A0A),
+        );
+
         return MaterialApp(
           title: 'Kazanç Oyunu',
           debugShowCheckedModeBanner: false,
-          theme: ThemeData(
-            useMaterial3: true,
-            brightness: Brightness.light,
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: Colors.red,
-              brightness: Brightness.light,
-            ),
-            scaffoldBackgroundColor: const Color(0xFFFAF9F6),
+          // Global tipografi: tüm metinler Titillium Web ile çizilir.
+          // GoogleFonts, mevcut weight / italic değerlerini koruyarak
+          // sadece font ailesini değiştirir.
+          theme: baseLight.copyWith(
+            textTheme: GoogleFonts.titilliumWebTextTheme(baseLight.textTheme),
           ),
-          darkTheme: ThemeData(
-            useMaterial3: true,
-            brightness: Brightness.dark,
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: Colors.red,
-              brightness: Brightness.dark,
-            ),
-            scaffoldBackgroundColor: const Color(0xFF0A0A0A),
+          darkTheme: baseDark.copyWith(
+            textTheme: GoogleFonts.titilliumWebTextTheme(baseDark.textTheme),
           ),
           themeMode: gameProvider.darkMode ? ThemeMode.dark : ThemeMode.light,
           home: const MainScreen(),
