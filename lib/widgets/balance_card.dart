@@ -308,7 +308,7 @@ class BalanceCard extends StatelessWidget {
                       Row(
                         children: [
                           Text(
-                            '•••• •••• •••• 8492',
+                            '•••• •••• •••• 2455',
                             style: TextStyle(
                               color: Colors.white.withOpacity(0.8),
                               fontSize: 14,

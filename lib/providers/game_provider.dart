@@ -146,10 +146,35 @@ class GameProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  // Mevcut tıklama değeri (seviye + 1)
+  int get currentClickValue => _clickUpgradeLevel + 1;
+
+  // Sonraki seviye tıklama değeri
+  int get nextClickValue => _clickUpgradeLevel + 2;
+
+  // Sonraki seviye maliyeti
+  double get nextLevelCost {
+    if (_clickUpgradeLevel == 0) return 500.0;
+    if (_clickUpgradeLevel == 1) return 1000.0;
+    if (_clickUpgradeLevel == 2) return 2000.0;
+    if (_clickUpgradeLevel == 3) return 4000.0;
+    if (_clickUpgradeLevel == 4) return 8000.0;
+    if (_clickUpgradeLevel == 5) return 16000.0;
+    if (_clickUpgradeLevel == 6) return 32000.0;
+    if (_clickUpgradeLevel == 7) return 64000.0;
+    if (_clickUpgradeLevel == 8) return 128000.0;
+    if (_clickUpgradeLevel == 9) return 256000.0;
+    return 0.0; // Maksimum seviye
+  }
+
+  // Maksimum seviyede mi?
+  bool get isMaxClickLevel => _clickUpgradeLevel >= 10;
+
   // Tıklama değerini yükselt
-  void upgradeClickValue(double cost) {
-    if (_balance >= cost && _clickUpgradeLevel < 10) {
-      _balance -= cost;
+  void upgradeClickValue([double? cost]) {
+    final upgradeCost = cost ?? nextLevelCost;
+    if (_balance >= upgradeCost && !isMaxClickLevel) {
+      _balance -= upgradeCost;
       _clickUpgradeLevel++;
       _saveGame();
       notifyListeners();
@@ -167,7 +192,7 @@ class GameProvider with ChangeNotifier {
   // 🏢 İŞLETME SATIN ALMA
   // ============================================
   bool purchaseBusiness(Business business) {
-    final cost = business.getCurrentCost();
+    final cost = business.getNextLevelCost();
 
     // Para kontrolü
     if (_balance < cost) {
@@ -254,8 +279,10 @@ class GameProvider with ChangeNotifier {
   @override
   void dispose() {
     _passiveIncomeTimer?.cancel();
-    // Son kez kaydet
-    _saveGame();
+    // Son kez kaydet (async ama dispose'da await edemeyiz)
+    _saveGame().catchError((_) {
+      // Hata durumunda sessizce devam et
+    });
     super.dispose();
   }
 }

@@ -10,8 +10,6 @@ class EarningsAction extends StatefulWidget {
 }
 
 class _EarningsActionState extends State<EarningsAction> {
-  bool isPressed = false;
-
   @override
   Widget build(BuildContext context) {
     final gameProvider = Provider.of<GameProvider>(context);
@@ -20,64 +18,115 @@ class _EarningsActionState extends State<EarningsAction> {
       children: [
         const SizedBox(height: 32),
 
-        // Click Value Display
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFFFFFBEB), Color(0xFFFED7AA)],
-            ),
-            border: Border.all(
-              color: const Color(0xFFFBBF24),
-              width: 2,
-            ),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.orange.withOpacity(0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    'Tıklama Değeri',
-                    style: TextStyle(
-                      color: Color(0xFFEA580C),
-                      fontSize: 14,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    '\$1',
-                    style: TextStyle(
-                      color: Color(0xFFC2410C),
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
+        // Click Value Display (Tıklanabilir ve yeşil renk)
+        if (!gameProvider.isMaxClickLevel)
+          GestureDetector(
+            onTap: () {
+              if (gameProvider.balance >= gameProvider.nextLevelCost) {
+                gameProvider.upgradeClickValue();
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: gameProvider.balance >= gameProvider.nextLevelCost
+                    ? const LinearGradient(
+                        colors: [Color(0xFFD1FAE5), Color(0xFFA7F3D0)],
+                      )
+                    : const LinearGradient(
+                        colors: [Color(0xFFFFFBEB), Color(0xFFFED7AA)],
+                      ),
+                border: Border.all(
+                  color: gameProvider.balance >= gameProvider.nextLevelCost
+                      ? const Color(0xFF10B981)
+                      : const Color(0xFFFBBF24),
+                  width: 2,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: gameProvider.balance >= gameProvider.nextLevelCost
+                        ? Colors.green.withOpacity(0.2)
+                        : Colors.orange.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
-            ],
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Tıklama Değeri',
+                        style: TextStyle(
+                          color: gameProvider.balance >= gameProvider.nextLevelCost
+                              ? const Color(0xFF059669)
+                              : const Color(0xFFEA580C),
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '\$${gameProvider.currentClickValue}',
+                        style: TextStyle(
+                          color: gameProvider.balance >= gameProvider.nextLevelCost
+                              ? const Color(0xFF047857)
+                              : const Color(0xFFC2410C),
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'Sonraki Seviye',
+                        style: TextStyle(
+                          color: gameProvider.balance >= gameProvider.nextLevelCost
+                              ? const Color(0xFF059669)
+                              : const Color(0xFFEA580C),
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '\$${gameProvider.nextLevelCost.toStringAsFixed(0)} kaldı',
+                        style: TextStyle(
+                          color: gameProvider.balance >= gameProvider.nextLevelCost
+                              ? const Color(0xFF047857)
+                              : const Color(0xFFC2410C),
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Sonra: \$${gameProvider.nextClickValue}/tık',
+                        style: TextStyle(
+                          color: gameProvider.balance >= gameProvider.nextLevelCost
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFFF97316),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
 
         const SizedBox(height: 16),
 
-        // Click Button (Buton sabit, içeride animasyon)
+        // Click Button
         GestureDetector(
-          onTapDown: (_) {
-            setState(() => isPressed = true);
+          onTap: () {
             gameProvider.handleClick();
           },
-          onTapUp: (_) => setState(() => isPressed = false),
-          onTapCancel: () => setState(() => isPressed = false),
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.all(32),
@@ -98,35 +147,16 @@ class _EarningsActionState extends State<EarningsAction> {
             ),
             child: Column(
               children: [
-                // Hand Icon with internal animation
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Ripple effect when pressed
-                    if (isPressed)
-                      Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.3),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    // Icon
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      child: Icon(
-                        Icons.touch_app,
-                        color: Colors.white,
-                        size: isPressed ? 72 : 80,
-                      ),
-                    ),
-                  ],
+                // Hand Icon
+                Icon(
+                  Icons.touch_app,
+                  color: Colors.white,
+                  size: 80,
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  '+\$1 Kazanmak İçin Tıkla!',
-                  style: TextStyle(
+                Text(
+                  '+\$${gameProvider.currentClickValue} Kazanmak İçin Tıkla!',
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -134,9 +164,9 @@ class _EarningsActionState extends State<EarningsAction> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Her tıklama \$1 kazandırır',
-                  style: TextStyle(
-                    color: const Color(0xFFFECDD3),
+                  'Her tıklama \$${gameProvider.currentClickValue} kazandırır',
+                  style: const TextStyle(
+                    color: Color(0xFFFECDD3),
                     fontSize: 14,
                   ),
                 ),
@@ -244,7 +274,7 @@ class _EarningsActionState extends State<EarningsAction> {
                 child: Column(
                   children: [
                     Text(
-                      '${(gameProvider.totalClicks / 1000).toStringAsFixed(1)}K',
+                      '${((gameProvider.totalClicks / 100).floor() / 10).toStringAsFixed(1)}K',
                       style: const TextStyle(
                         color: Color(0xFFDC2626),
                         fontSize: 20,
