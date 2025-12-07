@@ -1,356 +1,453 @@
+import 'dart:async'; // Timer için gerekli
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/item.dart';
 import '../providers/game_provider.dart';
 
-enum _CategoryFilter {
-  all,
-  boost, // Güçlendirici
-  automation,
-  xpBoost,
-  special,
-}
-
-enum _RarityFilter {
-  all,
-  common,
-  rare,
-  epic,
-  legendary,
-  mythic,
-}
-
-enum _SortOption {
-  defaultOption,
-  priceAsc,
-  priceDesc,
-  rarity,
-}
-
 class ItemsTab extends StatefulWidget {
-  const ItemsTab({super.key});
+  const ItemsTab({Key? key}) : super(key: key);
 
   @override
   State<ItemsTab> createState() => _ItemsTabState();
 }
 
 class _ItemsTabState extends State<ItemsTab> {
-  static const int _maxInventorySize = 50;
+  // --- STATE DEĞİŞKENLERİ ---
+  String selectedCategory = 'all';
+  String selectedRarity = 'all';
+  String sortBy = 'default';
 
-  _CategoryFilter _selectedCategory = _CategoryFilter.all;
-  _RarityFilter _selectedRarity = _RarityFilter.all;
-  _SortOption _selectedSort = _SortOption.defaultOption;
+  // UI'daki geri sayımı yenilemek için genel bir ticker
+  Timer? _ticker;
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  // --- LOGIC (MANTIK) ---
+  @override
+  void initState() {
+    super.initState();
+    // Her saniye rebuild ederek geri sayımın güncel kalmasını sağla
+    _ticker = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      // Süresi dolan varsa GameProvider üzerinden tüket
+      final game = context.read<GameProvider>();
+      final now = DateTime.now();
+      for (final item in game.items) {
+        final endTime = game.itemUseEndTimes[item.id];
+        if (endTime != null && !endTime.isAfter(now)) {
+          game.consumeTimedItem(item);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${item.name} süresi doldu!'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+      setState(() {});
+    });
+  }
+
+  Map<String, int> _categoryCount(List<Item> items) {
+    return {
+      'all': items.length,
+      'enhancer': items.where((i) => i.category == ItemCategory.boost).length,
+      'automation': items.where((i) => i.category == ItemCategory.automation).length,
+      'xp_booster': items.where((i) => i.category == ItemCategory.xpBoost).length,
+      'special': items.where((i) => i.category == ItemCategory.special).length,
+    };
+  }
+
+  int _ownedCount(List<Item> items) => items.where((i) => i.owned > 0).length;
+
+  List<Item> _filteredItems(List<Item> items, GameProvider game) {
+    var filtered = items.where((item) {
+      bool categoryMatch;
+      switch (selectedCategory) {
+        case 'enhancer': categoryMatch = item.category == ItemCategory.boost; break;
+        case 'automation': categoryMatch = item.category == ItemCategory.automation; break;
+        case 'xp_booster': categoryMatch = item.category == ItemCategory.xpBoost; break;
+        case 'special': categoryMatch = item.category == ItemCategory.special; break;
+        case 'all': default: categoryMatch = true;
+      }
+      final rarityMatch = selectedRarity == 'all' || item.rarity.name == selectedRarity;
+      return categoryMatch && rarityMatch;
+    }).toList();
+
+    switch (sortBy) {
+      case 'price_low':
+        filtered.sort((a, b) => game.getItemCurrentPrice(a).compareTo(game.getItemCurrentPrice(b)));
+        break;
+      case 'price_high':
+        filtered.sort((a, b) => game.getItemCurrentPrice(b).compareTo(game.getItemCurrentPrice(a)));
+        break;
+      case 'rarity':
+        final order = {'common': 0, 'rare': 1, 'epic': 2, 'legendary': 3, 'mythic': 4};
+        filtered.sort((a, b) => (order[b.rarity.name] ?? 0).compareTo(order[a.rarity.name] ?? 0));
+        break;
+      case 'default': default: break;
+    }
+    return filtered;
+  }
+
+  void clearFilters() {
+    setState(() {
+      selectedCategory = 'all';
+      selectedRarity = 'all';
+      sortBy = 'default';
+    });
+  }
+
+  // 5 DAKİKA KURALI MANTIĞI
+  void _handleUseItem(Item item, GameProvider game) {
+    if (item.owned <= 0) return;
+    final endTime = game.itemUseEndTimes[item.id];
+    if (endTime != null && endTime.isAfter(DateTime.now())) {
+      // Zaten aktifse yeniden başlatma
+      return;
+    }
+
+    // 5 Dakikalık süreyi GameProvider üzerinden başlat
+    game.startItemUseTimer(item, const Duration(minutes: 5));
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${item.name} aktif edildi! (5 dk)'),
+        backgroundColor: Colors.blueAccent,
+        duration: const Duration(milliseconds: 1000),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _handleBuyItem(Item item, GameProvider game) {
+    final success = game.buyItem(item);
+    String message;
+    Color color;
+
+    if (!success) {
+      final currentPrice = game.getItemCurrentPrice(item);
+      if (item.owned >= item.maxStack) {
+        message = 'Maksimum!';
+        color = Colors.redAccent;
+      } else if (game.balance < currentPrice) {
+        message = 'Yetersiz Bakiye!';
+        color = Colors.orangeAccent;
+      } else {
+        message = 'Hata.';
+        color = Colors.red;
+      }
+    } else {
+      message = 'Satın alındı!';
+      color = const Color(0xFF00C853);
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(success ? Icons.check_circle : Icons.error, color: Colors.white, size: 18),
+            const SizedBox(width: 8),
+            Text(message, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          ],
+        ),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        margin: const EdgeInsets.all(12), // Margin küçültüldü
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), // Padding küçültüldü
+        duration: const Duration(milliseconds: 1000),
+      ),
+    );
+  }
+
+  // --- UI ---
 
   @override
   Widget build(BuildContext context) {
     final game = Provider.of<GameProvider>(context);
     final items = game.items;
-    final ownedItems = game.ownedItems;
+    final categoryCount = _categoryCount(items);
+    final filtered = _filteredItems(items, game);
 
-    // Filtre + sıralama uygulanmış liste
-    final filteredItems = _applyFiltersAndSorting(items);
-
-    final ownedCount = ownedItems.length;
-    final itemCount = filteredItems.length;
-
-    final hasActiveFilters = _selectedCategory != _CategoryFilter.all ||
-        _selectedRarity != _RarityFilter.all ||
-        _selectedSort != _SortOption.defaultOption;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+    return Container(
+      // Arka plan rengi temaya göre değişsin (ışık / karanlık)
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // HEADER
-          _buildHeader(balance: game.balance, ownedCount: ownedCount),
-          const SizedBox(height: 16),
+          // 1. KOMPAKT HEADER
+          _buildCompactHeader(game, items),
 
-          // KATEGORİ CHIPS
-          _buildCategoryChips(),
-          const SizedBox(height: 16),
-
-          // DROPDOWN ROW
-          _buildFilterDropdownRow(),
           const SizedBox(height: 12),
 
-          // SONUÇ ÖZETİ
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '$itemCount eşya bulundu',
-                style: const TextStyle(
-                  fontFamily: 'Titillium Web',
-                  fontSize: 13,
-                  color: Colors.white70,
-                ),
-              ),
-              if (hasActiveFilters)
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedCategory = _CategoryFilter.all;
-                      _selectedRarity = _RarityFilter.all;
-                      _selectedSort = _SortOption.defaultOption;
-                    });
-                  },
-                  child: const Text(
-                    '✕ Filtreleri Temizle',
-                    style: TextStyle(
-                      fontFamily: 'Titillium Web',
-                      fontSize: 13,
-                      color: Color(0xFFDC2626),
-                      fontWeight: FontWeight.w600,
-                    ),
+          // 2. KATEGORİ SEÇİCİ (Daha ince)
+          SizedBox(
+            height: 36, // Yükseklik 50'den 36'ya düşürüldü
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              children: [
+                _buildCompactTab('all', 'Tümü', categoryCount['all'] ?? 0),
+                _buildCompactTab('enhancer', 'Güç', categoryCount['enhancer'] ?? 0),
+                _buildCompactTab('automation', 'Oto', categoryCount['automation'] ?? 0),
+                _buildCompactTab('xp_booster', 'XP', categoryCount['xp_booster'] ?? 0),
+                _buildCompactTab('special', 'Özel', categoryCount['special'] ?? 0),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // 3. FİLTRE KONTROLLERİ
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                const Text(
+                  'Market',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-            ],
+                const Spacer(),
+                _buildMiniFilterButton(
+                  icon: Icons.filter_list,
+                  label: selectedRarity == 'all' ? 'Tüm Nadirlikler' : _rarityName(ItemRarity.values.firstWhere((e) => e.name == selectedRarity)),
+                  onTap: () => _showRaritySheet(context),
+                  isActive: selectedRarity != 'all',
+                ),
+                const SizedBox(width: 8),
+                _buildMiniFilterButton(
+                  icon: Icons.sort,
+                  label: 'Sırala',
+                  onTap: () => _showSortSheet(context),
+                  isActive: sortBy != 'default',
+                ),
+                if (selectedCategory != 'all' || selectedRarity != 'all' || sortBy != 'default') ...[
+                  const SizedBox(width: 8),
+                  InkWell(
+                    onTap: clearFilters,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.close, size: 14, color: Colors.red),
+                    ),
+                  )
+                ]
+              ],
+            ),
           ),
-          const SizedBox(height: 16),
 
-          // EŞYA LİSTESİ / EMPTY STATE
-          if (filteredItems.isEmpty)
-            _buildEmptyState()
-          else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: filteredItems.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 16),
+          const SizedBox(height: 8),
+
+          // 4. LİSTE
+          Expanded(
+            child: filtered.isEmpty
+                ? _buildEmptyState()
+                : ListView.builder(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 80),
+              itemCount: filtered.length,
               itemBuilder: (context, index) {
-                final item = filteredItems[index];
-                final price = game.getItemCurrentPrice(item);
-                final canBuy = game.balance >= price;
-
-                return _ItemCard(
-                  item: item,
-                  price: price,
-                  canBuy: canBuy,
-                  onBuy: () => game.buyItem(item),
-                );
+                return _buildCompactItemCard(filtered[index], game);
               },
             ),
-
-          const SizedBox(height: 24),
-
-          // ENVANTER BÖLÜMÜ
-          const Text(
-            'Envanterim',
-            style: TextStyle(
-              fontFamily: 'Titillium Web',
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-            ),
           ),
-          const SizedBox(height: 12),
-          if (ownedItems.isEmpty)
-            const Text(
-              'Henüz eşya satın almadın. Güçlendiricileri yukarıdan satın alabilirsin.',
-              style: TextStyle(
-                fontFamily: 'Titillium Web',
-                fontSize: 14,
-                color: Colors.white70,
-              ),
-            )
-          else
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: ownedItems
-                  .map((item) => _InventoryChip(item: item))
-                  .toList(),
-            ),
         ],
       ),
     );
   }
 
-  // HEADER
-  Widget _buildHeader({
-    required double balance,
-    required int ownedCount,
-  }) {
-    final ownedText = '$ownedCount/$_maxInventorySize Eşya';
-    final balanceText = '\$${balance.toStringAsFixed(0)}';
+  // --- COMPACT COMPONENTS ---
+
+  Widget _buildCompactHeader(GameProvider game, List<Item> items) {
+    final ownedCount = _ownedCount(items);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16), // Paddingler küçültüldü
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(20),
+          bottomRight: Radius.circular(20),
         ),
-        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF8B5CF6).withOpacity(0.35),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+            color: Color(0x08000000),
+            blurRadius: 10,
+            offset: Offset(0, 5),
           ),
         ],
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.inventory_2_rounded,
-              color: Colors.white,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Envanter',
-                  style: TextStyle(
-                    fontFamily: 'Titillium Web',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Envanter',
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.0,
                 ),
-                const SizedBox(height: 2),
+              ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    '$ownedCount',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF2D3436),
+                    ),
+                  ),
+                  Text(
+                    '/${items.length}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[400],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          // Bakiye (Küçültülmüş)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6C5CE7), Color(0xFFA29BFE)],
+              ),
+              borderRadius: BorderRadius.circular(15),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x336C5CE7),
+                  blurRadius: 8,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.account_balance_wallet, color: Colors.white, size: 14),
+                const SizedBox(width: 6),
                 Text(
-                  ownedText,
+                  '\$${game.balance.toInt()}',
                   style: const TextStyle(
-                    fontFamily: 'Titillium Web',
-                    fontSize: 12,
-                    color: Colors.white70,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      fontFamily: 'Monospace'
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              const Text(
-                'Bakiye',
-                style: TextStyle(
-                  fontFamily: 'Titillium Web',
-                  fontSize: 11,
-                  color: Colors.white70,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                balanceText,
-                style: const TextStyle(
-                  fontFamily: 'Titillium Web',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );
   }
 
-  // KATEGORİ CHIPS
-  Widget _buildCategoryChips() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _buildCategoryChip(
-            icon: '📦',
-            label: 'Tümü',
-            filter: _CategoryFilter.all,
-          ),
-          const SizedBox(width: 8),
-          _buildCategoryChip(
-            icon: '⚡',
-            label: 'Güçlendirici',
-            filter: _CategoryFilter.boost,
-          ),
-          const SizedBox(width: 8),
-          _buildCategoryChip(
-            icon: '⚙️',
-            label: 'Otomasyon',
-            filter: _CategoryFilter.automation,
-          ),
-          const SizedBox(width: 8),
-          _buildCategoryChip(
-            icon: '📚',
-            label: 'XP Pekiştirici',
-            filter: _CategoryFilter.xpBoost,
-          ),
-          const SizedBox(width: 8),
-          _buildCategoryChip(
-            icon: '⭐',
-            label: 'Özel',
-            filter: _CategoryFilter.special,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCategoryChip({
-    required String icon,
-    required String label,
-    required _CategoryFilter filter,
-  }) {
-    final bool isActive = _selectedCategory == filter;
+  Widget _buildCompactTab(String id, String label, int count) {
+    final isSelected = selectedCategory == id;
 
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedCategory = filter;
-        });
-      },
-      child: Container(
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+      onTap: () => setState(() => selectedCategory = id),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF8B5CF6) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: isActive
-              ? null
-              : Border.all(
-                  color: const Color(0xFFE5E7EB),
-                  width: 1,
-                ),
-          boxShadow: isActive
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFF8B5CF6).withOpacity(0.35),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  )
-                ]
-              : [],
+          color: isSelected ? const Color(0xFF2D3436) : Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+              color: isSelected ? Colors.transparent : Colors.grey.shade300,
+              width: 0.5
+          ),
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              icon,
-              style: const TextStyle(fontSize: 16),
-            ),
-            const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
-                fontFamily: 'Titillium Web',
-                fontSize: 13,
+                color: isSelected ? Colors.white : Colors.grey[600],
+                fontWeight: FontWeight.bold,
+                fontSize: 11, // Font küçültüldü
+              ),
+            ),
+            if (count > 0) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: isSelected ? Colors.white.withOpacity(0.2) : Colors.grey[200],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  count.toString(),
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: isSelected ? Colors.white : Colors.grey[600],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniFilterButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    required bool isActive,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFFE0F7FA) : Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isActive ? const Color(0xFF00BCD4) : Colors.transparent,
+            width: 0.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 14, color: isActive ? const Color(0xFF0097A7) : Colors.grey[600]),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
                 fontWeight: FontWeight.w600,
-                color: isActive ? Colors.white : const Color(0xFF4B5563),
+                color: isActive ? const Color(0xFF0097A7) : Colors.grey[700],
               ),
             ),
           ],
@@ -359,585 +456,335 @@ class _ItemsTabState extends State<ItemsTab> {
     );
   }
 
-  // DROPDOWN SATIRI
-  Widget _buildFilterDropdownRow() {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildDropdown<_RarityFilter>(
-            label: 'Nadirlik',
-            value: _selectedRarity,
-            items: const {
-              _RarityFilter.all: 'Tümü',
-              _RarityFilter.common: 'Yaygın',
-              _RarityFilter.rare: 'Nadir',
-              _RarityFilter.epic: 'Epik',
-              _RarityFilter.legendary: 'Efsanevi',
-              _RarityFilter.mythic: 'Mitik',
-            },
-            onChanged: (val) {
-              if (val == null) return;
-              setState(() {
-                _selectedRarity = val;
-              });
-            },
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildDropdown<_SortOption>(
-            label: 'Sırala',
-            value: _selectedSort,
-            items: const {
-              _SortOption.defaultOption: 'Varsayılan',
-              _SortOption.priceAsc: 'Ucuz → Pahalı',
-              _SortOption.priceDesc: 'Pahalı → Ucuz',
-              _SortOption.rarity: 'Nadirlik',
-            },
-            onChanged: (val) {
-              if (val == null) return;
-              setState(() {
-                _selectedSort = val;
-              });
-            },
-          ),
-        ),
-      ],
-    );
-  }
+  Widget _buildCompactItemCard(Item item, GameProvider game) {
+    final currentPrice = game.getItemCurrentPrice(item);
+    final canAfford = game.balance >= currentPrice;
+    final accentColor = _rarityColor(item.rarity);
 
-  Widget _buildDropdown<T>({
-    required String label,
-    required T value,
-    required Map<T, String> items,
-    required ValueChanged<T?> onChanged,
-  }) {
+    // Timer Durumu
+    final DateTime? endTime = game.itemUseEndTimes[item.id];
+    bool isActive = false;
+    int remaining = 0;
+    if (endTime != null) {
+      final diff = endTime.difference(DateTime.now()).inSeconds;
+      if (diff > 0) {
+        isActive = true;
+        remaining = diff;
+      }
+    }
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      margin: const EdgeInsets.only(bottom: 8), // Margin azaltıldı
+      padding: const EdgeInsets.all(10), // Padding azaltıldı
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFFE5E7EB),
-        ),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<T>(
-          value: value,
-          isExpanded: true,
-          icon: const Icon(
-            Icons.keyboard_arrow_down_rounded,
-            color: Color(0xFF7C3AED),
-          ),
-          style: const TextStyle(
-            fontFamily: 'Titillium Web',
-            fontSize: 13,
-            color: Color(0xFF374151),
-          ),
-          onChanged: onChanged,
-          items: items.entries
-              .map(
-                (e) => DropdownMenuItem<T>(
-                  value: e.key,
-                  child: Text(e.value),
-                ),
-              )
-              .toList(),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white12),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: const [
-          Icon(
-            Icons.search_rounded,
-            size: 40,
-            color: Colors.white54,
-          ),
-          SizedBox(height: 10),
-          Text(
-            'Eşya Bulunamadı',
-            style: TextStyle(
-              fontFamily: 'Titillium Web',
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            ),
-          ),
-          SizedBox(height: 4),
-          Text(
-            'Farklı filtreler deneyin',
-            style: TextStyle(
-              fontFamily: 'Titillium Web',
-              fontSize: 13,
-              color: Colors.white70,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<Item> _applyFiltersAndSorting(List<Item> items) {
-    var result = items.where((item) {
-      // Kategori filtresi
-      if (!_matchesCategory(item)) return false;
-
-      // Nadirlik filtresi
-      if (!_matchesRarity(item)) return false;
-
-      return true;
-    }).toList();
-
-    // Sıralama
-    switch (_selectedSort) {
-      case _SortOption.priceAsc:
-        result.sort((a, b) => a.price.compareTo(b.price));
-        break;
-      case _SortOption.priceDesc:
-        result.sort((a, b) => b.price.compareTo(a.price));
-        break;
-      case _SortOption.rarity:
-        result.sort(
-          (a, b) => _rarityOrder(a.rarity).compareTo(_rarityOrder(b.rarity)),
-        );
-        break;
-      case _SortOption.defaultOption:
-        // Varsayılan: orijinal sıralamayı koru
-        break;
-    }
-
-    return result;
-  }
-
-  bool _matchesCategory(Item item) {
-    switch (_selectedCategory) {
-      case _CategoryFilter.all:
-        return true;
-      case _CategoryFilter.boost:
-        return item.category == ItemCategory.boost;
-      case _CategoryFilter.automation:
-        return item.category == ItemCategory.automation;
-      case _CategoryFilter.xpBoost:
-        return item.category == ItemCategory.xpBoost;
-      case _CategoryFilter.special:
-        return item.category == ItemCategory.special;
-    }
-  }
-
-  bool _matchesRarity(Item item) {
-    switch (_selectedRarity) {
-      case _RarityFilter.all:
-        return true;
-      case _RarityFilter.common:
-        return item.rarity == ItemRarity.common;
-      case _RarityFilter.rare:
-        return item.rarity == ItemRarity.rare;
-      case _RarityFilter.epic:
-        return item.rarity == ItemRarity.epic;
-      case _RarityFilter.legendary:
-        return item.rarity == ItemRarity.legendary;
-      case _RarityFilter.mythic:
-        return false; // Şimdilik mitik eşya yok
-    }
-  }
-
-  int _rarityOrder(ItemRarity rarity) {
-    switch (rarity) {
-      case ItemRarity.common:
-        return 0;
-      case ItemRarity.rare:
-        return 1;
-      case ItemRarity.epic:
-        return 2;
-      case ItemRarity.legendary:
-        return 3;
-      case ItemRarity.mythic:
-        return 4;
-    }
-  }
-}
-
-class _ItemCard extends StatelessWidget {
-  final Item item;
-  final double price;
-  final bool canBuy;
-  final VoidCallback onBuy;
-
-  const _ItemCard({
-    required this.item,
-    required this.price,
-    required this.canBuy,
-    required this.onBuy,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final priceText = '\$${price.toStringAsFixed(0)}';
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        gradient: _rarityGradient(item.rarity),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(16),
+        border: isActive ? Border.all(color: Colors.blueAccent.withOpacity(0.5), width: 1.5) : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
-        border: Border.all(
-          color: _rarityBorderColor(item.rarity),
-          width: 2,
-        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
+          // İKON (Küçültüldü)
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: accentColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Text(item.icon, style: const TextStyle(fontSize: 24)),
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          // BİLGİLER
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        item.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14, // Font küçültüldü
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF2D3436),
+                        ),
+                      ),
+                    ),
+                    // Nadirlik Noktası
+                    Container(
+                      width: 8, height: 8,
+                      decoration: BoxDecoration(
+                        color: accentColor,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                   ],
                 ),
-                child: Center(
+                const SizedBox(height: 2),
+                Text(
+                  item.description,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                ),
+                const SizedBox(height: 4),
+                // Fiyat
+                Text(
+                  '\$${currentPrice.toInt()}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: canAfford ? Colors.black87 : Colors.redAccent,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(width: 8),
+
+          // AKSİYON BUTONLARI
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              // 1. SATIN AL BUTONU (Kompakt)
+              InkWell(
+                onTap: () => _handleBuyItem(item, game),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: canAfford ? const Color(0xFFF1F2F6) : Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: canAfford ? Colors.grey.shade300 : Colors.red.withOpacity(0.3),
+                    ),
+                  ),
                   child: Text(
-                    item.icon,
-                    style: const TextStyle(fontSize: 36),
+                    'SATIN AL',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: canAfford ? Colors.black87 : Colors.red,
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+
+              const SizedBox(height: 6),
+
+              // 2. KULLAN BUTONU (Eğer sahipse ve aktif değilse)
+              if (item.owned > 0 && !isActive)
+                InkWell(
+                  onTap: () => _handleUseItem(item, game),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xFF00B894), Color(0xFF00CEC9)]),
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(color: const Color(0xFF00B894).withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Expanded(
-                          child: Text(
-                            item.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontFamily: 'Titillium Web',
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF111827),
-                            ),
+                        const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 10),
+                        const SizedBox(width: 4),
+                        Text(
+                          'KULLAN (${item.owned})',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color:
-                            _rarityBorderColor(item.rarity).withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        item.rarity.name.toUpperCase(),
-                        style: TextStyle(
-                          fontFamily: 'Titillium Web',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: _rarityBorderColor(item.rarity),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      item.description,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontFamily: 'Titillium Web',
-                        fontSize: 13,
-                        color: Color(0xFF6B7280),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.7),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Text(
-              item.effect,
-              style: const TextStyle(
-                fontFamily: 'Titillium Web',
-                fontSize: 12,
-                color: Color(0xFF374151),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+
+              // 3. AKTİF DURUM (Geri Sayım)
+              if (isActive)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFFEF3C7), Color(0xFFFDE68A)],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: const Color(0xFFF59E0B),
-                      width: 1.3,
-                    ),
+                    color: Colors.blueAccent.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
-                        Icons.monetization_on_rounded,
-                        size: 16,
-                        color: Color(0xFFB45309),
+                      const SizedBox(
+                        width: 8, height: 8,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blueAccent),
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        priceText,
+                        '${(remaining ~/ 60)}:${(remaining % 60).toString().padLeft(2, '0')}',
                         style: const TextStyle(
-                          fontFamily: 'Titillium Web',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF92400E),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blueAccent,
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: SizedBox(
-                  height: 36,
-                  child: ElevatedButton(
-                    onPressed: canBuy ? onBuy : null,
-                    style: ElevatedButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      elevation: canBuy ? 4 : 0,
-                      backgroundColor: canBuy
-                          ? null
-                          : Colors.grey.shade500, // override when disabled
-                    ).copyWith(
-                      backgroundColor: canBuy
-                          ? MaterialStateProperty.resolveWith<Color>(
-                              (states) {
-                                return const Color(0xFF10B981);
-                              },
-                            )
-                          : MaterialStateProperty.all(Colors.grey.shade500),
-                    ),
-                    child: const Text(
-                      'Satın Al',
-                      style: TextStyle(
-                        fontFamily: 'Titillium Web',
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
-          const SizedBox(height: 10),
-          _buildProgressBar(item),
         ],
       ),
     );
   }
 
-  Widget _buildProgressBar(Item item) {
-    final progress =
-        item.maxStack == 0 ? 0.0 : (item.owned / item.maxStack).clamp(0.0, 1.0);
+  // --- ACTIONSHEET MENÜLERİ ---
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: LinearProgressIndicator(
-            value: progress,
-            minHeight: 6,
-            backgroundColor: Colors.white.withOpacity(0.3),
-            valueColor: AlwaysStoppedAnimation<Color>(
-              _rarityBorderColor(item.rarity),
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '${item.owned}/${item.maxStack}',
-          style: const TextStyle(
-            fontFamily: 'Titillium Web',
-            fontSize: 11,
-            color: Colors.white70,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _InventoryChip extends StatelessWidget {
-  final Item item;
-
-  const _InventoryChip({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.18),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            item.icon,
-            style: const TextStyle(fontSize: 20),
-          ),
-          const SizedBox(width: 6),
-          Column(
+  void _showRaritySheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                item.name,
-                style: const TextStyle(
-                  fontFamily: 'Titillium Web',
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-              Text(
-                '${item.owned}x',
-                style: const TextStyle(
-                  fontFamily: 'Titillium Web',
-                  fontSize: 11,
-                  color: Colors.white70,
-                ),
+              const Text('Nadirlik Filtresi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  // DÜZELTME BURADA YAPILDI: "Tüm Nadirlikler"
+                  _buildSheetOption('all', 'Tüm Nadirlikler', selectedRarity == 'all', (val) {
+                    setState(() => selectedRarity = val);
+                    Navigator.pop(ctx);
+                  }),
+                  ...ItemRarity.values.map((r) => _buildSheetOption(
+                      r.name,
+                      _rarityName(r),
+                      selectedRarity == r.name,
+                          (val) {
+                        setState(() => selectedRarity = val);
+                        Navigator.pop(ctx);
+                      }
+                  )).toList(),
+                ],
               ),
             ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showSortSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Sıralama', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 12),
+              ListTile(
+                dense: true,
+                leading: const Icon(Icons.sort, size: 20),
+                title: const Text('Varsayılan', style: TextStyle(fontSize: 14)),
+                selected: sortBy == 'default',
+                onTap: () { setState(() => sortBy = 'default'); Navigator.pop(ctx); },
+              ),
+              ListTile(
+                dense: true,
+                leading: const Icon(Icons.arrow_upward, color: Colors.green, size: 20),
+                title: const Text('Fiyat: Düşükten Yükseğe', style: TextStyle(fontSize: 14)),
+                selected: sortBy == 'price_low',
+                onTap: () { setState(() => sortBy = 'price_low'); Navigator.pop(ctx); },
+              ),
+              ListTile(
+                dense: true,
+                leading: const Icon(Icons.arrow_downward, color: Colors.red, size: 20),
+                title: const Text('Fiyat: Yüksekten Düşüğe', style: TextStyle(fontSize: 14)),
+                selected: sortBy == 'price_high',
+                onTap: () { setState(() => sortBy = 'price_high'); Navigator.pop(ctx); },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSheetOption(String value, String label, bool isSelected, Function(String) onSelect) {
+    return ChoiceChip(
+      label: Text(label, style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : Colors.black)),
+      selected: isSelected,
+      onSelected: (bool selected) {
+        if(selected) onSelect(value);
+      },
+      selectedColor: const Color(0xFF6C5CE7),
+      backgroundColor: Colors.grey[100],
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.search_off_rounded, size: 48, color: Colors.grey[300]),
+          const SizedBox(height: 12),
+          Text(
+            'Eşya Bulunamadı',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey[400]),
           ),
         ],
       ),
     );
   }
 }
+
+// --- YARDIMCI RENK VE METİN FONKSİYONLARI ---
 
 Color _rarityColor(ItemRarity rarity) {
   switch (rarity) {
-    case ItemRarity.common:
-      return const Color(0xFF6B7280);
-    case ItemRarity.rare:
-      return const Color(0xFF3B82F6);
-    case ItemRarity.epic:
-      return const Color(0xFF9333EA);
-    case ItemRarity.legendary:
-      return const Color(0xFFF59E0B);
-    case ItemRarity.mythic:
-      return const Color(0xFFDC2626);
+    case ItemRarity.common: return const Color(0xFFB2BEC3);
+    case ItemRarity.rare: return const Color(0xFF0984E3);
+    case ItemRarity.epic: return const Color(0xFF6C5CE7);
+    case ItemRarity.legendary: return const Color(0xFFFDCB6E);
+    case ItemRarity.mythic: return const Color(0xFFFF7675);
   }
 }
 
-LinearGradient _rarityGradient(ItemRarity rarity) {
+String _rarityName(ItemRarity? rarity) {
+  if (rarity == null) return 'Tüm Nadirlikler';
   switch (rarity) {
-    case ItemRarity.common:
-      return const LinearGradient(
-        colors: [Color(0xFFF3F4F6), Color(0xFFE5E7EB)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    case ItemRarity.rare:
-      return const LinearGradient(
-        colors: [Color(0xFFDCEEFF), Color(0xFFBAE6FF)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    case ItemRarity.epic:
-      return const LinearGradient(
-        colors: [Color(0xFFF3E8FF), Color(0xFFE9D5FF)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    case ItemRarity.legendary:
-      return const LinearGradient(
-        colors: [Color(0xFFFEF3C7), Color(0xFFFDE68A)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    case ItemRarity.mythic:
-      return const LinearGradient(
-        colors: [Color(0xFFFEE2E2), Color(0xFFFECDD3)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-  }
-}
-
-Color _rarityBorderColor(ItemRarity rarity) {
-  switch (rarity) {
-    case ItemRarity.common:
-      return const Color(0xFF6B7280);
-    case ItemRarity.rare:
-      return const Color(0xFF3B82F6);
-    case ItemRarity.epic:
-      return const Color(0xFF9333EA);
-    case ItemRarity.legendary:
-      return const Color(0xFFF59E0B);
-    case ItemRarity.mythic:
-      return const Color(0xFFDC2626);
+    case ItemRarity.common: return 'Yaygın';
+    case ItemRarity.rare: return 'Nadir';
+    case ItemRarity.epic: return 'Epik';
+    case ItemRarity.legendary: return 'Efsanevi';
+    case ItemRarity.mythic: return 'Mitik';
   }
 }

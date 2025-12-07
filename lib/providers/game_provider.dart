@@ -20,6 +20,11 @@ class GameProvider with ChangeNotifier {
   // Eşyalar (buff / item sistemi)
   List<Item> _items = [];
 
+  // Zamanlı kullanılan eşyalar (örneğin 5 dakikalık bufflar) için
+  // item id -> bitiş zamanı eşlemesi
+  final Map<int, DateTime> _itemUseEndTimes = {};
+  Map<int, DateTime> get itemUseEndTimes => _itemUseEndTimes;
+
   // Google Play Games / profil bilgileri (isteğe bağlı)
   String? _googlePlayProfileUrl;
   String? _googlePlayName;
@@ -244,6 +249,25 @@ class GameProvider with ChangeNotifier {
     return true;
   }
 
+  /// Bir eşyayı zamanlı olarak (örneğin 5 dakika) aktif eder.
+  void startItemUseTimer(Item item, Duration duration) {
+    if (item.owned <= 0) return;
+    _itemUseEndTimes[item.id] = DateTime.now().add(duration);
+    notifyListeners();
+  }
+
+  /// Zamanı dolan bir eşyayı envanterden 1 adet düş ve zamanlayıcıyı temizle.
+  void consumeTimedItem(Item item) {
+    if (_itemUseEndTimes.containsKey(item.id)) {
+      _itemUseEndTimes.remove(item.id);
+      if (item.owned > 0) {
+        item.owned--;
+      }
+      _saveGame();
+      notifyListeners();
+    }
+  }
+
   // Bildirim sayısını ayarla
   void setNotificationCount(int count) {
     _notificationCount = count;
@@ -325,6 +349,7 @@ class GameProvider with ChangeNotifier {
     _totalExperience = 0;
     _clickUpgradeLevel = 0;
     _notificationCount = 0;
+    _itemUseEndTimes.clear();
 
     // İşletmeleri sıfırla
     _businesses = initialBusinesses.map((b) => Business(
