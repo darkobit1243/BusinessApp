@@ -59,7 +59,7 @@ class _EarningsActionState extends State<EarningsAction>
                 child: const Icon(
                   Icons.attach_money,
                   color: Color(0xFF16A34A),
-                  size: 18,
+                  size: 48,
                 ),
               ),
             ),
@@ -262,27 +262,19 @@ class _EarningsActionState extends State<EarningsAction>
 
         const SizedBox(height: 20),
 
-        // STATS - MODERN TASARIM
+        // STATS - MODERN TASARIM (Sadece "Bugün" ve "Toplam")
         Row(
           children: [
             Expanded(
               child: _buildStatCard(
-                value: '${gameProvider.totalClicks}',
+                value: _formatClicks(gameProvider.totalClicks),
                 label: 'Bugün',
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _buildStatCard(
-                value: '${gameProvider.totalClicks}',
-                label: 'Bu Hafta',
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildStatCard(
-                value:
-                '${((gameProvider.totalClicks / 100).floor() / 10).toStringAsFixed(1)}K',
+                value: _formatClicks(gameProvider.totalClicks),
                 label: 'Toplam',
               ),
             ),
@@ -290,6 +282,24 @@ class _EarningsActionState extends State<EarningsAction>
         ),
       ],
     );
+  }
+
+  /// Click sayacı için modern kısaltma
+  /// 999  -> "999"
+  /// 1000 -> "1K"
+  /// 1500 -> "1.5K"
+  /// 10000 -> "10K"
+  String _formatClicks(int value) {
+    if (value >= 1000) {
+      final double k = value / 1000;
+      // Tam sayı ise 1K, 10K gibi; değilse 1.5K gibi
+      if (k == k.roundToDouble()) {
+        return '${k.toStringAsFixed(0)}K';
+      } else {
+        return '${k.toStringAsFixed(1)}K';
+      }
+    }
+    return value.toString();
   }
 
   // ✔️ Profildeki XP widget'ının, Earnings ekranına uygun kompakt versiyonu
@@ -348,15 +358,15 @@ class _EarningsActionState extends State<EarningsAction>
   // ✔️ Modern Stat Card Component
   Widget _buildStatCard({required String value, required String label}) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
       decoration: BoxDecoration(
         color: const Color(0xFF808080), // 🔥 YENİ GRİ
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10), // hafif radius
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.16),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
+            color: Colors.black.withOpacity(0.14),
+            blurRadius: 5,
+            offset: const Offset(0, 2), // soft shadow
           ),
         ],
       ),
@@ -367,7 +377,7 @@ class _EarningsActionState extends State<EarningsAction>
             value,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 16,
+              fontSize: 14, // daha minimal
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -376,7 +386,7 @@ class _EarningsActionState extends State<EarningsAction>
             label,
             style: const TextStyle(
               color: Colors.white70,
-              fontSize: 11,
+              fontSize: 10, // daha kompakt
             ),
           ),
         ],

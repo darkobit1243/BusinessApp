@@ -82,7 +82,7 @@ class _MainScreenState extends State<MainScreen> {
     'Yatırımlarım',
     'İşletmelerim',
     'Kazançlarım',
-    'Envanter',
+    'Eşyalarım',
     'Profilim',
   ];
 

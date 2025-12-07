@@ -3,11 +3,13 @@ enum ItemRarity {
   rare,
   epic,
   legendary,
+  mythic,
 }
 
 enum ItemCategory {
   boost,
-  cosmetic,
+  automation,
+  xpBoost,
   special,
 }
 
