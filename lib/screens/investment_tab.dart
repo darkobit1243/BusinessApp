@@ -166,9 +166,10 @@ class _InvestmentTabState extends State<InvestmentTab> {
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            // Koyu kart rengi (kazançlar/eşyalar ile uyumlu)
+            color: const Color(0xFF2D3436),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade200),
+            border: Border.all(color: Colors.white24),
             boxShadow: [
               BoxShadow(
                 color: Colors.grey.withOpacity(0.1),
@@ -205,12 +206,13 @@ class _InvestmentTabState extends State<InvestmentTab> {
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
+                        color: Colors.white,
                       ),
                     ),
                     Text(
                       investment['symbol']!,
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
+                      style: const TextStyle(
+                        color: Colors.white70,
                         fontSize: 14,
                       ),
                     ),
@@ -226,6 +228,7 @@ class _InvestmentTabState extends State<InvestmentTab> {
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
+                      color: Colors.white,
                     ),
                   ),
                   Text(

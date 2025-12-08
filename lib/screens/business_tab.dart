@@ -91,7 +91,8 @@ class BusinessTab extends StatelessWidget {
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: isDark ? Colors.grey[900] : Colors.white,
+                  // Açık temada beyaz yerine koyu kart rengi
+                  color: isDark ? Colors.grey[900] : const Color(0xFF2D3436),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: isUnlocked
@@ -166,9 +167,9 @@ class BusinessTab extends StatelessWidget {
                           const SizedBox(height: 4),
                           Text(
                             business.description,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 12,
-                              color: Colors.grey[600],
+                              color: Colors.white70,
                             ),
                           ),
                           if (isUnlocked && income > 0) ...[
@@ -185,9 +186,9 @@ class BusinessTab extends StatelessWidget {
                                 ),
                                 Text(
                                   ' → ${formatNumber(nextIncome)}/s',
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 12,
-                                    color: Colors.grey[500],
+                                    color: Colors.white70,
                                   ),
                                 ),
                               ],
@@ -196,9 +197,9 @@ class BusinessTab extends StatelessWidget {
                           if (!isUnlocked)
                             Text(
                               '🔒 ${business.requiredExperience} XP gerekli',
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 12,
-                                color: Colors.grey[600],
+                                color: Colors.white70,
                                 fontStyle: FontStyle.italic,
                               ),
                             ),

@@ -103,7 +103,7 @@ class _EarningsActionState extends State<EarningsAction>
                     decoration: BoxDecoration(
                       color: canUpgrade
                           ? const Color(0xFF16A34A) // YEŞİL (yeterli para)
-                          : const Color(0xFF808080), // Varsayılan GRİ
+                          : const Color(0xFF2D3436), // Eşyalar sekmesindeki koyu panel rengi
                       borderRadius: BorderRadius.circular(18),
                       boxShadow: [
                         BoxShadow(
@@ -313,8 +313,8 @@ class _EarningsActionState extends State<EarningsAction>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        // Arka plan rengi Click Value widget'ıyla aynı gri ton
-        color: const Color(0xFF808080),
+        // Arka plan rengi Eşyalar sekmesindeki panellerle aynı koyu ton
+        color: const Color(0xFF2D3436),
         borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
@@ -360,7 +360,7 @@ class _EarningsActionState extends State<EarningsAction>
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF808080), // 🔥 YENİ GRİ
+        color: const Color(0xFF2D3436), // Eşyalar sekmesindeki koyu panel rengi ile aynı
         borderRadius: BorderRadius.circular(10), // hafif radius
         boxShadow: [
           BoxShadow(

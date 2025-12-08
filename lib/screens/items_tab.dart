@@ -279,7 +279,8 @@ class _ItemsTabState extends State<ItemsTab> {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16), // Paddingler küçültüldü
       decoration: const BoxDecoration(
-        color: Colors.white,
+        // Kazançlar ekranındaki koyu panel rengi ile aynı
+        color: Color(0xFF2D3436),
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(20),
           bottomRight: Radius.circular(20),
@@ -300,8 +301,8 @@ class _ItemsTabState extends State<ItemsTab> {
             children: [
               Text(
                 'Envanter',
-                style: TextStyle(
-                  color: Colors.grey[400],
+                style: const TextStyle(
+                  color: Colors.white70,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.0,
@@ -316,15 +317,15 @@ class _ItemsTabState extends State<ItemsTab> {
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF2D3436),
+                      color: Colors.white,
                     ),
                   ),
                   Text(
                     '/${items.length}',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: Colors.grey[400],
+                      color: Colors.white54,
                     ),
                   ),
                 ],
@@ -477,7 +478,7 @@ class _ItemsTabState extends State<ItemsTab> {
       margin: const EdgeInsets.only(bottom: 8), // Margin azaltıldı
       padding: const EdgeInsets.all(10), // Padding azaltıldı
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF2D3436), // Kazançlar ekranındaki koyu panel rengi
         borderRadius: BorderRadius.circular(16),
         border: isActive ? Border.all(color: Colors.blueAccent.withOpacity(0.5), width: 1.5) : null,
         boxShadow: [
@@ -521,7 +522,7 @@ class _ItemsTabState extends State<ItemsTab> {
                         style: const TextStyle(
                           fontSize: 14, // Font küçültüldü
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF2D3436),
+                          color: Colors.white,
                         ),
                       ),
                     ),
@@ -540,7 +541,7 @@ class _ItemsTabState extends State<ItemsTab> {
                   item.description,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                  style: const TextStyle(fontSize: 10, color: Colors.white70),
                 ),
                 const SizedBox(height: 4),
                 // Fiyat
@@ -549,7 +550,7 @@ class _ItemsTabState extends State<ItemsTab> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
-                    color: canAfford ? Colors.black87 : Colors.redAccent,
+                    color: canAfford ? Colors.white : Colors.redAccent,
                   ),
                 ),
               ],
@@ -569,10 +570,11 @@ class _ItemsTabState extends State<ItemsTab> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: canAfford ? const Color(0xFFF1F2F6) : Colors.red.withOpacity(0.1),
+                    // Koyu tema ile uyumlu: kart rengiyle aynı ton
+                    color: canAfford ? const Color(0xFF2D3436) : Colors.red.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: canAfford ? Colors.grey.shade300 : Colors.red.withOpacity(0.3),
+                      color: canAfford ? Colors.white24 : Colors.red.withOpacity(0.3),
                     ),
                   ),
                   child: Text(
@@ -580,7 +582,7 @@ class _ItemsTabState extends State<ItemsTab> {
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
-                      color: canAfford ? Colors.black87 : Colors.red,
+                      color: canAfford ? Colors.white : Colors.red,
                     ),
                   ),
                 ),
