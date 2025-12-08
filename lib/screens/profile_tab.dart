@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/game_provider.dart';
+import '../models/achievement.dart';
+import 'achievements_tab.dart';
 
 class ProfileTab extends StatefulWidget {
   const ProfileTab({Key? key}) : super(key: key);
@@ -169,7 +171,7 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
       children: [
         _statCard(
           'Toplam Kazanç',
-          '\$${formatNumber(gp.balance)}',
+          '\$${formatNumber(gp.totalEarnings)}',
           Icons.attach_money_rounded,
           Colors.greenAccent.shade700,
           isDark,
@@ -259,100 +261,35 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
 
   // -------------------- ACHIEVEMENTS --------------------
   Widget _buildAchievements(GameProvider gp, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.grey[900] : Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: isDark ? Colors.grey[800]! : Colors.grey.shade300,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.workspace_premium_rounded, color: Colors.amber.shade600),
-              const SizedBox(width: 8),
-              Text(
-                'Başarımlar',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _achievement(
-            'İlk Tıklama',
-            'İlk paranı kazan',
-            gp.totalClicks > 0,
-            isDark,
-          ),
-          _achievement(
-            'İlk Bin',
-            '\$1,000 topla',
-            gp.balance >= 1000,
-            isDark,
-          ),
-          _achievement(
-            'İlk Milyon',
-            '\$1,000,000 topla',
-            gp.balance >= 1000000,
-            isDark,
-          ),
-        ],
-      ),
-    );
-  }
+    // Basit bir eşleme ile oyuncu durumuna göre başarımların progress'ini doldur
+    final achievements = Achievement.getInitialAchievements();
+    for (final a in achievements) {
+      switch (a.category) {
+        case 'money':
+          // Toplam kazanç üzerinden dolar başarımları
+          a.progress = gp.totalEarnings;
+          break;
+        case 'clicks':
+          a.progress = gp.totalClicks.toDouble();
+          break;
+        case 'level':
+          // Seviye / XP başarımları için mevcut seviye
+          a.progress = gp.currentLevel.toDouble();
+          break;
+        default:
+          // Diğer kategoriler şimdilik 0'da kalsın
+          break;
+      }
+    }
 
-  Widget _achievement(String title, String desc, bool done, bool isDark) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 350),
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: done
-            ? Colors.amber.withOpacity(0.18)
-            : (isDark ? Colors.grey[850] : Colors.grey[200]),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            done ? Icons.check_circle_rounded : Icons.lock_rounded,
-            color: done ? Colors.amber : Colors.grey,
-            size: 30,
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: done
-                        ? (isDark ? Colors.white : Colors.black)
-                        : Colors.grey,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  desc,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: done ? Colors.grey.shade700 : Colors.grey.shade500,
-                  ),
-                ),
-              ],
-            ),
-          )
-        ],
+    // Profil sekmesinde başarımlar sekmesini gömmek için sabit yükseklikte kullanıyoruz
+    return SizedBox(
+      height: 420,
+      child: AchievementsTab(
+        achievements: achievements,
+        onClaimReward: (_) {
+          // İleride GameProvider ödül mantığı buraya bağlanabilir
+        },
       ),
     );
   }

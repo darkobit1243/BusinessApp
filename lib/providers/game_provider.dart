@@ -10,6 +10,7 @@ class GameProvider with ChangeNotifier {
   // === OYUN VERİLERİ ===
   bool _darkMode = false;
   double _balance = 0.0;
+  double _totalEarnings = 0.0; // Oyuncunun bugüne kadar kazandığı toplam para
   int _todayClicks = 0;
   int _weekClicks = 0;
   int _totalClicks = 0;
@@ -38,6 +39,7 @@ class GameProvider with ChangeNotifier {
   // === GETTERS ===
   bool get darkMode => _darkMode;
   double get balance => _balance;
+  double get totalEarnings => _totalEarnings;
   int get todayClicks => _todayClicks;
   int get weekClicks => _weekClicks;
   int get totalClicks => _totalClicks;
@@ -86,6 +88,7 @@ class GameProvider with ChangeNotifier {
 
     _darkMode = prefs.getBool('darkMode') ?? false;
     _balance = prefs.getDouble('balance') ?? 0.0;
+    _totalEarnings = prefs.getDouble('totalEarnings') ?? 0.0;
     _todayClicks = prefs.getInt('todayClicks') ?? 0;
     _weekClicks = prefs.getInt('weekClicks') ?? 0;
     _totalClicks = prefs.getInt('totalClicks') ?? 0;
@@ -123,6 +126,7 @@ class GameProvider with ChangeNotifier {
 
     await prefs.setBool('darkMode', _darkMode);
     await prefs.setDouble('balance', _balance);
+    await prefs.setDouble('totalEarnings', _totalEarnings);
     await prefs.setInt('todayClicks', _todayClicks);
     await prefs.setInt('weekClicks', _weekClicks);
     await prefs.setInt('totalClicks', _totalClicks);
@@ -155,6 +159,7 @@ class GameProvider with ChangeNotifier {
   // Para ekle
   void addBalance(double amount) {
     _balance += amount;
+    _totalEarnings += amount;
     _saveGame();
     notifyListeners();
   }
@@ -172,6 +177,7 @@ class GameProvider with ChangeNotifier {
   void handleClick() {
     final clickValue = 1.0 + _clickUpgradeLevel;
     _balance += clickValue;
+    _totalEarnings += clickValue;
     _todayClicks++;
     _weekClicks++;
     _totalClicks++;
@@ -326,6 +332,7 @@ class GameProvider with ChangeNotifier {
           (timer) {
         if (passiveIncome > 0) {
           _balance += passiveIncome;
+          _totalEarnings += passiveIncome;
           // Not: Her saniye kaydetmiyoruz, performans için
           // Sadece notifyListeners çağırıyoruz
       notifyListeners();
@@ -343,6 +350,7 @@ class GameProvider with ChangeNotifier {
 
     _darkMode = false;
     _balance = 0.0;
+    _totalEarnings = 0.0;
     _todayClicks = 0;
     _weekClicks = 0;
     _totalClicks = 0;
